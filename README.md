@@ -6,12 +6,11 @@
 
 ## Install
 
-This package is published to GitHub Packages. Consumers need a `.npmrc` entry so npm resolves the `@jbwatenbergscality` scope from GitHub Packages, plus a token with `read:packages`:
+This package is published to GitHub Packages from a public repository, so no auth token is needed to install. Consumers only need an `.npmrc` entry mapping the scope to GitHub Packages:
 
 ```ini
 # in consumer repo .npmrc
 @jbwatenbergscality:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
 Then:
