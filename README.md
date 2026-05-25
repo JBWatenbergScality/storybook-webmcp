@@ -6,8 +6,18 @@
 
 ## Install
 
+This package is published to GitHub Packages. Consumers need a `.npmrc` entry so npm resolves the `@jbwatenbergscality` scope from GitHub Packages, plus a token with `read:packages`:
+
+```ini
+# in consumer repo .npmrc
+@jbwatenbergscality:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then:
+
 ```sh
-npm i -D storybook-webmcp
+npm i -D @jbwatenbergscality/storybook-webmcp
 ```
 
 ## Use
@@ -15,18 +25,14 @@ npm i -D storybook-webmcp
 Add the addon to `.storybook/main.ts`:
 
 ```ts
-addons: ['@storybook/addon-docs', 'storybook-webmcp']
+addons: ['@storybook/addon-docs', '@jbwatenbergscality/storybook-webmcp']
 ```
 
 The addon auto-enables `features.componentsManifest: true` and `experimental_manifests: {}` via its preset, so `storybook build` writes `/manifests/components.json`. If you need to override those settings, add them explicitly in your own `main.ts` — your config runs after addon presets and takes precedence.
 
 ## Consume from Claude Code (or another MCP client)
 
-WebMCP requires **Chrome 149+** launched with:
-
-```
---enable-features=WebMCPTesting,DevToolsWebMCPSupport
-```
+WebMCP requires **Chrome 149+**.
 
 Configure `chrome-devtools-mcp` in your MCP client (e.g. `~/.claude/claude_desktop_config.json` or `.mcp.json`):
 

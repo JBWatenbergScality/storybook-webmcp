@@ -1,5 +1,5 @@
 {
-  "name": "storybook-webmcp",
+  "name": "@jbwatenbergscality/storybook-webmcp",
   "version": "0.0.0",
   "description": "Serverless WebMCP alternative to @storybook/mcp — exposes Storybook docs to AI agents via the W3C navigator.modelContext API from a static GitHub Pages build.",
   "type": "module",
@@ -22,6 +22,14 @@
     "./package.json": "./package.json"
   },
   "files": ["dist", "README.md"],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JBWatenbergScality/storybook-webmcp.git"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
