@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { loadManifests, __resetManifestCache } from './manifests';
+import { loadManifests, __resetManifestCache, ManifestNotFoundError } from './manifests';
 import minimal from './__fixtures__/components.minimal.json';
 import docs from './__fixtures__/docs.json';
 
@@ -27,5 +27,17 @@ describe('loadManifests', () => {
     const result = await loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl });
     expect(result.components).toEqual(minimal);
     expect(result.docs).toEqual(docs);
+  });
+
+  it('throws ManifestNotFoundError on 404 (message contains rebuild hint)', async () => {
+    const fetchImpl = mockFetch({ '/manifests/components.json': { status: 404 } });
+    await expect(loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl }))
+      .rejects.toThrow(/storybook-webmcp.*rebuild/i);
+  });
+
+  it('throws an instance of ManifestNotFoundError on 404', async () => {
+    const fetchImpl = mockFetch({ '/manifests/components.json': { status: 404 } });
+    await expect(loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl }))
+      .rejects.toBeInstanceOf(ManifestNotFoundError);
   });
 });
