@@ -20,11 +20,13 @@ jobs:
           registry-url: 'https://npm.pkg.github.com'
           scope: '@jbwatenbergscality'
 
-      - run: npm ci
+      # `npm install` (not `npm ci`) because the lockfile is platform-locked
+      # to whichever OS first ran install; native optional deps differ on Linux.
+      - run: npm install --no-audit --no-fund
 
       - run: npm test
       - run: npx playwright install --with-deps chromium
-      - run: npm --prefix examples/fixture-sb install
+      - run: npm --prefix examples/fixture-sb install --no-audit --no-fund
       - run: npm --prefix examples/fixture-sb run build-storybook
       - run: npm run test:e2e
 
