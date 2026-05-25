@@ -1,3 +1,5 @@
+import React from 'react';
+
 export type InputProps = {
   /** Placeholder text */
   placeholder?: string;
