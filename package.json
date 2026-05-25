@@ -11,6 +11,10 @@
       "types": "./dist/preset.d.ts",
       "default": "./dist/preset.js"
     },
+    "./preset": {
+      "types": "./dist/preset.d.ts",
+      "default": "./dist/preset.js"
+    },
     "./manager": {
       "types": "./dist/manager.d.ts",
       "default": "./dist/manager.js"
@@ -28,7 +32,9 @@
     "storybook": "^10.2.0"
   },
   "dependencies": {
-    "@mcp-b/global": "^2.2.0"
+    "@mcp-b/global": "^2.2.0",
+    "zod": "^3.25",
+    "zod-to-json-schema": "^3.25.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.49.0",

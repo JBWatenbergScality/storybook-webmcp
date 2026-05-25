@@ -12,11 +12,14 @@ export const managerEntries = async (existing: string[] = []) => [
 // into the resolved StorybookConfig. Manifest emission is gated by BOTH:
 //   features.componentsManifest === true   (core-server gate)
 //   experimental_manifests  (preset-hook registration; addon-docs / @storybook/react)
-// We enable both, but user-provided values win.
+// We enable both. Note: common-preset runs before addon presets and sets
+// componentsManifest: false, so we must unconditionally set it to true here.
+// Users who want to disable it can set features.componentsManifest: false in
+// their main.ts (main config runs AFTER addon presets and will override us).
 
 export const features = (existing: Record<string, unknown> | undefined = {}) => ({
   ...existing,
-  componentsManifest: existing.componentsManifest ?? true,
+  componentsManifest: true,
 });
 
 export const experimental_manifests = (existing: unknown) => {
