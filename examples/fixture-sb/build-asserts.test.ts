@@ -4,8 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 const here = path.dirname(new URL(import.meta.url).pathname);
 const out = path.join(here, 'storybook-static');
+// Skip the build-asserts suite entirely when the fixture hasn't been built —
+// keeps `npm test` from failing on a fresh clone. CI builds the fixture first
+// (see .github/workflows/release.yml).
+const built = existsSync(out);
 
-describe('fixture-sb build outputs', () => {
+describe.skipIf(!built)('fixture-sb build outputs', () => {
   it('emits /manifests/components.json', () => {
     expect(existsSync(path.join(out, 'manifests', 'components.json'))).toBe(true);
   });

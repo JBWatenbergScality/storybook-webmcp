@@ -24,13 +24,17 @@ jobs:
       # to whichever OS first ran install; native optional deps differ on Linux.
       - run: npm install --no-audit --no-fund
 
-      - run: npm test
-      - run: npx playwright install --with-deps chromium
+      # Build the addon first so the fixture can resolve `file:../..`.
+      - run: npm run build
+
+      # Install and build the fixture BEFORE `npm test` because build-asserts
+      # (examples/fixture-sb/build-asserts.test.ts) inspects storybook-static/.
       - run: npm --prefix examples/fixture-sb install --no-audit --no-fund
       - run: npm --prefix examples/fixture-sb run build-storybook
-      - run: npm run test:e2e
 
-      - run: npm run build
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
 
       - name: Set package version from release tag
         run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
