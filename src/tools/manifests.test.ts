@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { loadManifests, __resetManifestCache, ManifestNotFoundError } from './manifests';
+import { loadManifests, __resetManifestCache, ManifestNotFoundError, SchemaVersionError } from './manifests';
 import minimal from './__fixtures__/components.minimal.json';
 import docs from './__fixtures__/docs.json';
 
@@ -39,5 +39,24 @@ describe('loadManifests', () => {
     const fetchImpl = mockFetch({ '/manifests/components.json': { status: 404 } });
     await expect(loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl }))
       .rejects.toBeInstanceOf(ManifestNotFoundError);
+  });
+
+  it('throws SchemaVersionError on an unknown manifest version', async () => {
+    const fetchImpl = mockFetch({
+      '/manifests/components.json': { status: 200, body: { v: 999, components: {} } },
+    });
+    await expect(
+      loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl }),
+    ).rejects.toThrow(/v.*999/);
+  });
+
+  it('caches results so a second call does not re-fetch', async () => {
+    const fetchImpl = mockFetch({
+      '/manifests/components.json': { status: 200, body: minimal },
+      '/manifests/docs.json': { status: 200, body: docs },
+    });
+    await loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl });
+    await loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(2); // components + docs, not 4
   });
 });
