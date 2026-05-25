@@ -1,0 +1,15 @@
+{
+  "v": 0,
+  "docs": {
+    "intro": {
+      "id": "intro",
+      "title": "Introduction",
+      "content": "Welcome to the design system."
+    },
+    "tokens": {
+      "id": "tokens",
+      "title": "Design Tokens",
+      "content": "Spacing, color, typography."
+    }
+  }
+}

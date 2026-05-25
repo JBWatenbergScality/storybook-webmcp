@@ -1,0 +1,66 @@
+{
+  "v": 0,
+  "components": {
+    "ui-button": {
+      "id": "ui-button",
+      "name": "Button",
+      "path": "./src/Button.stories.tsx",
+      "stories": [
+        { "id": "ui-button--primary", "name": "Primary", "snippet": "const Primary = () => <Button label=\"Click me\" />;" },
+        { "id": "ui-button--secondary", "name": "Secondary", "snippet": "const Secondary = () => <Button label=\"Click me\" variant=\"secondary\" />;" }
+      ],
+      "import": "import { Button } from \"fixture-sb\";",
+      "jsDocTags": {},
+      "reactDocgen": {
+        "description": "A primary action button.",
+        "methods": [],
+        "displayName": "Button",
+        "definedInFile": "/src/Button.tsx",
+        "actualName": "Button",
+        "exportName": "Button",
+        "props": {
+          "label": {
+            "required": true,
+            "tsType": { "name": "string" },
+            "description": "Visible label"
+          },
+          "variant": {
+            "required": false,
+            "tsType": { "name": "union", "raw": "'primary' | 'secondary'", "elements": [{ "name": "literal", "value": "'primary'" }, { "name": "literal", "value": "'secondary'" }] },
+            "description": "Visual variant",
+            "defaultValue": { "value": "'primary'", "computed": false }
+          }
+        }
+      }
+    },
+    "ui-input": {
+      "id": "ui-input",
+      "name": "Input",
+      "path": "./src/Input.stories.tsx",
+      "stories": [
+        { "id": "ui-input--default", "name": "Default", "snippet": "const Default = () => <Input placeholder=\"Type here\" />;" }
+      ],
+      "import": "import { Input } from \"fixture-sb\";",
+      "jsDocTags": {},
+      "reactDocgen": {
+        "description": "",
+        "methods": [],
+        "displayName": "Input",
+        "definedInFile": "/src/Input.tsx",
+        "actualName": "Input",
+        "exportName": "Input",
+        "props": {
+          "placeholder": {
+            "required": false,
+            "tsType": { "name": "string" },
+            "description": "Placeholder text"
+          }
+        }
+      }
+    }
+  },
+  "meta": {
+    "docgen": "react-docgen",
+    "durationMs": 10
+  }
+}
