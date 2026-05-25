@@ -1,4 +1,14 @@
 import type { ComponentsManifest, StoryEntry, PropDef } from './types';
+import { closestMatches } from './levenshtein';
+
+export class ComponentNotFoundError extends Error {
+  readonly suggestions: string[];
+  constructor(id: string, suggestions: string[]) {
+    super(`component not found: ${id}. Did you mean: ${suggestions.join(', ')}?`);
+    this.name = 'ComponentNotFoundError';
+    this.suggestions = suggestions;
+  }
+}
 
 export type GetDocumentationArgs = { id: string };
 
@@ -36,7 +46,10 @@ export const getDocumentation = (
   manifests: { components: ComponentsManifest },
 ): GetDocumentationResult => {
   const entry = manifests.components.components[args.id];
-  if (!entry) throw new Error(`component not found: ${args.id}`); // refined in Task 9
+  if (!entry) {
+    const suggestions = closestMatches(args.id, Object.keys(manifests.components.components), 5);
+    throw new ComponentNotFoundError(args.id, suggestions);
+  }
   const stories = entry.stories ?? [];
   return {
     id: entry.id,

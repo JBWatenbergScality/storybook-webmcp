@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDocumentation } from './get-documentation';
+import { getDocumentation, ComponentNotFoundError } from './get-documentation';
 import minimal from './__fixtures__/components.minimal.json';
 import type { ComponentsManifest } from './types';
 
@@ -20,5 +20,15 @@ describe('getDocumentation', () => {
     });
     expect(result.firstStories).toHaveLength(2);
     expect(result.remainingStoryIndex).toEqual([]);
+  });
+
+  it('throws ComponentNotFoundError with up to 5 closest id suggestions', () => {
+    try {
+      getDocumentation({ id: 'ui-buton' }, m);
+      throw new Error('should not reach');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ComponentNotFoundError);
+      expect((e as ComponentNotFoundError).suggestions).toContain('ui-button');
+    }
   });
 });
