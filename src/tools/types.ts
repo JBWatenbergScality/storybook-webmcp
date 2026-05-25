@@ -88,6 +88,34 @@ export type ReactDocgenData = {
 };
 
 /**
+ * A single prop definition as emitted by react-docgen-typescript.
+ * Field shape differs from the vanilla react-docgen PropDef:
+ *   - `type: { name }` instead of `tsType: { name, raw? }`
+ *   - `defaultValue: { value } | null` instead of optional/missing
+ *   - prop record entries also carry their own `name` field
+ *
+ * Source: storybook 10 with `typescript.reactDocgen: 'react-docgen-typescript'`
+ * (e.g. scality/core-ui).
+ */
+export type ReactDocgenTypescriptPropDef = {
+  name: string;
+  required: boolean;
+  type: { name: string };
+  description: string;
+  defaultValue: { value: string } | null;
+};
+
+export type ReactDocgenTypescriptData = {
+  description: string;
+  displayName: string;
+  exportName: string;
+  filePath: string;
+  methods: unknown[];
+  props: Record<string, ReactDocgenTypescriptPropDef>;
+  tags?: Record<string, unknown>;
+};
+
+/**
  * A single component entry in the components manifest.
  * Source: components.realistic.json > components[id]
  */
@@ -107,7 +135,7 @@ export type ComponentEntry = {
   /** Present when docgenEngine is react-docgen (the default) */
   reactDocgen?: ReactDocgenData;
   /** Present when docgenEngine is react-docgen-typescript */
-  reactDocgenTypescript?: unknown;
+  reactDocgenTypescript?: ReactDocgenTypescriptData;
   /** Present when features.experimentalReactComponentMeta is true */
   reactComponentMeta?: unknown;
   subcomponents?: Record<string, ComponentSubcomponentEntry>;

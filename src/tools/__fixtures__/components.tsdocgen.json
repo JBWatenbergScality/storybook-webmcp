@@ -1,0 +1,43 @@
+{
+  "v": 0,
+  "components": {
+    "ts-select": {
+      "id": "ts-select",
+      "name": "Select",
+      "path": "./src/Select.stories.tsx",
+      "stories": [
+        { "id": "ts-select--default", "name": "Default" }
+      ],
+      "import": "import { Select } from \"ts-fixture\";",
+      "jsDocTags": {},
+      "reactDocgenTypescript": {
+        "description": "A typescript-typed select component.",
+        "displayName": "Select",
+        "exportName": "Select",
+        "filePath": "src/Select.tsx",
+        "methods": [],
+        "props": {
+          "id": {
+            "name": "id",
+            "required": true,
+            "type": { "name": "string" },
+            "description": "Element id",
+            "defaultValue": null
+          },
+          "size": {
+            "name": "size",
+            "required": false,
+            "type": { "name": "\"sm\" | \"md\" | \"lg\"" },
+            "description": "Size variant",
+            "defaultValue": { "value": "md" }
+          }
+        },
+        "tags": {}
+      }
+    }
+  },
+  "meta": {
+    "docgen": "react-docgen-typescript",
+    "durationMs": 12
+  }
+}
