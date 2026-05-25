@@ -1,0 +1,39 @@
+{
+  "name": "storybook-webmcp",
+  "version": "0.0.0",
+  "description": "Serverless WebMCP alternative to @storybook/mcp — exposes Storybook docs to AI agents via the W3C navigator.modelContext API from a static GitHub Pages build.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/preset.js",
+  "types": "./dist/preset.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/preset.d.ts",
+      "default": "./dist/preset.js"
+    },
+    "./manager": {
+      "types": "./dist/manager.d.ts",
+      "default": "./dist/manager.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["dist", "README.md"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "peerDependencies": {
+    "storybook": "^10.2.0"
+  },
+  "dependencies": {
+    "@mcp-b/global": "^2.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}
