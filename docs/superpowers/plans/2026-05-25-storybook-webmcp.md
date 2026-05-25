@@ -712,6 +712,8 @@ git commit -m "feat(manifests): throw ManifestNotFoundError with rebuild hint"
 
 ## Task 6: `loadManifests` — schema version guard + cache verification
 
+> **Schema reminder (from Task 3):** Storybook 10.4 emits `{ v: 0, components: {...}, meta: {...} }`. The version field is **`v`** (not `schemaVersion`); the current value is **`0`**. Adjust if a future Storybook bumps it.
+
 **Files:**
 - Modify: `src/tools/manifests.test.ts`
 - Modify: `src/tools/manifests.ts`
@@ -721,11 +723,11 @@ git commit -m "feat(manifests): throw ManifestNotFoundError with rebuild hint"
 ```ts
 it('throws SchemaVersionError on an unknown manifest version', async () => {
   const fetchImpl = mockFetch({
-    '/manifests/components.json': { status: 200, body: { schemaVersion: 999, entries: {} } },
+    '/manifests/components.json': { status: 200, body: { v: 999, components: {} } },
   });
   await expect(
     loadManifests({ baseHref: 'https://example.com/sb/', fetchImpl }),
-  ).rejects.toThrow(/schemaVersion.*999/);
+  ).rejects.toThrow(/v.*999/);
 });
 
 it('caches results so a second call does not re-fetch', async () => {
@@ -755,7 +757,7 @@ In `src/tools/manifests.ts`:
 
 ```ts
 // Bump when we've verified compatibility with a new shape.
-export const SUPPORTED_SCHEMA_VERSIONS = [1] as const;
+export const SUPPORTED_SCHEMA_VERSIONS = [0] as const;
 
 export class SchemaVersionError extends Error {
   constructor(field: string, got: unknown) {
@@ -769,17 +771,22 @@ export class SchemaVersionError extends Error {
 }
 
 const assertSchema = (m: ComponentsManifest) => {
-  // If the real manifest has no version field, replace this with structural checks
-  // (e.g. assert presence of `entries` and that each entry has `id`, `stories`).
-  if (m.schemaVersion !== undefined && !SUPPORTED_SCHEMA_VERSIONS.includes(m.schemaVersion as 1)) {
-    throw new SchemaVersionError('schemaVersion', m.schemaVersion);
+  if (m.v === undefined) {
+    // Structural fallback: ensure `components` is an object.
+    if (typeof m.components !== 'object' || m.components === null) {
+      throw new SchemaVersionError('shape', 'missing `components` object');
+    }
+    return;
+  }
+  if (!SUPPORTED_SCHEMA_VERSIONS.includes(m.v as 0)) {
+    throw new SchemaVersionError('v', m.v);
   }
 };
 ```
 
 Then call `assertSchema(components)` inside `loadManifests`, after parsing components and before returning.
 
-> If Task 3 discovered that the version field is named differently (e.g. `v`) or absent, update `assertSchema` accordingly. The test in Step 1 uses `schemaVersion` because the fixtures use that name; if the real shape uses a different name, update both the fixtures and the test to match.
+> If the docs manifest is also fetched and has its own `v`, you may apply the same guard; the speculative DocsManifest shape uses `{ v: 0, docs: {...} }`.
 
 - [ ] **Step 4: Run tests**
 
@@ -799,6 +806,8 @@ git commit -m "feat(manifests): schema version guard and cache test"
 ---
 
 ## Task 7: `list-all-documentation` tool
+
+> **Schema reminder:** Components are under `components` (not `entries`); each entry has `id`, `name`, `path`, `stories[]` — no `title`, no `tags`, no `docs[]`. Docs manifest is `{ v, docs: {...} }`.
 
 **Files:**
 - Create: `src/tools/list-all-documentation.test.ts`
@@ -820,8 +829,8 @@ describe('listAllDocumentation', () => {
       components: minimal as ComponentsManifest,
     });
     expect(result.components).toEqual([
-      { id: 'ui-button', title: 'UI/Button', tags: ['autodocs', 'manifest'], hasDocs: false, storyCount: 2 },
-      { id: 'ui-input', title: 'UI/Input', tags: [], hasDocs: false, storyCount: 1 },
+      { id: 'ui-button', name: 'Button', path: './src/Button.stories.tsx', storyCount: 2 },
+      { id: 'ui-input', name: 'Input', path: './src/Input.stories.tsx', storyCount: 1 },
     ]);
     expect(result.docs).toEqual([]);
   });
@@ -855,9 +864,8 @@ import type { ComponentsManifest, DocsManifest } from './types';
 
 export type ComponentIndexEntry = {
   id: string;
-  title: string;
-  tags: string[];
-  hasDocs: boolean;
+  name: string;
+  path: string;
   storyCount: number;
 };
 
@@ -871,15 +879,18 @@ export type ListAllDocumentationResult = {
 export const listAllDocumentation = (
   manifests: { components: ComponentsManifest; docs?: DocsManifest },
 ): ListAllDocumentationResult => {
-  const components: ComponentIndexEntry[] = Object.values(manifests.components.entries).map((c) => ({
+  const components: ComponentIndexEntry[] = Object.values(manifests.components.components).map((c) => ({
     id: c.id,
-    title: c.title,
-    tags: c.tags ?? [],
-    hasDocs: (c.docs?.length ?? 0) > 0,
+    name: c.name,
+    path: c.path,
     storyCount: c.stories.length,
   }));
   const docs: DocsIndexEntry[] = manifests.docs
-    ? Object.values(manifests.docs.entries).map((d) => ({ id: d.id, title: d.title, type: 'docs' as const }))
+    ? Object.values(manifests.docs.docs).map((d) => ({
+        id: d.id,
+        title: d.title ?? d.id,
+        type: 'docs' as const,
+      }))
     : [];
   return { components, docs };
 };
@@ -904,6 +915,8 @@ git commit -m "feat(tool): list-all-documentation"
 
 ## Task 8: `get-documentation` — happy path
 
+> **Schema reminder:** Props live nested at `entry.reactDocgen.props` as `Record<string, { required, tsType: { name, raw? }, description, defaultValue? }>`. Flatten to a `PropSummary[]` for the result. Description: prefer `entry.description`, fallback to `entry.reactDocgen?.description`. No `title` field — use `name`. No `attachedDocs` (no `docs[]` on entries in this schema).
+
 **Files:**
 - Create: `src/tools/get-documentation.test.ts`
 - Create: `src/tools/get-documentation.ts`
@@ -920,17 +933,17 @@ import type { ComponentsManifest } from './types';
 const m = { components: minimal as ComponentsManifest };
 
 describe('getDocumentation', () => {
-  it('returns props, first <=3 stories, and a story index for the rest', () => {
+  it('returns props (flattened), first <=3 stories, and a story index for the rest', () => {
     const result = getDocumentation({ id: 'ui-button' }, m);
     expect(result).toMatchObject({
       id: 'ui-button',
-      title: 'UI/Button',
+      name: 'Button',
+      path: './src/Button.stories.tsx',
       description: 'A primary action button.',
       props: [
         { name: 'label', type: 'string', required: true, description: 'Visible label' },
-        { name: 'variant', type: "'primary' | 'secondary'", required: false, defaultValue: 'primary' },
+        { name: 'variant', type: "'primary' | 'secondary'", required: false, description: 'Visual variant', defaultValue: "'primary'" },
       ],
-      attachedDocs: [],
     });
     expect(result.firstStories).toHaveLength(2);
     expect(result.remainingStoryIndex).toEqual([]);
@@ -950,35 +963,54 @@ Expected: FAIL — module not found.
 
 ```ts
 // src/tools/get-documentation.ts
-import type { ComponentsManifest, ComponentEntry, StoryEntry } from './types';
+import type { ComponentsManifest, StoryEntry, PropDef } from './types';
 
 export type GetDocumentationArgs = { id: string };
 
+export type PropSummary = {
+  name: string;
+  type: string;
+  required: boolean;
+  description: string;
+  defaultValue?: string;
+};
+
 export type GetDocumentationResult = {
   id: string;
-  title: string;
-  description?: string;
-  props: ComponentEntry['props'];
+  name: string;
+  path: string;
+  description: string;
+  props: PropSummary[];
   firstStories: StoryEntry[];
   remainingStoryIndex: { id: string; name: string }[];
-  attachedDocs: string[];
 };
+
+const propTypeString = (p: PropDef): string => p.tsType.raw ?? p.tsType.name;
+
+const summarizeProps = (props: Record<string, PropDef> | undefined): PropSummary[] =>
+  Object.entries(props ?? {}).map(([name, p]) => ({
+    name,
+    type: propTypeString(p),
+    required: p.required,
+    description: p.description,
+    ...(p.defaultValue !== undefined ? { defaultValue: p.defaultValue.value } : {}),
+  }));
 
 export const getDocumentation = (
   args: GetDocumentationArgs,
   manifests: { components: ComponentsManifest },
 ): GetDocumentationResult => {
-  const entry = manifests.components.entries[args.id];
+  const entry = manifests.components.components[args.id];
   if (!entry) throw new Error(`component not found: ${args.id}`); // refined in Task 9
   const stories = entry.stories ?? [];
   return {
     id: entry.id,
-    title: entry.title,
-    description: entry.description,
-    props: entry.props ?? [],
+    name: entry.name,
+    path: entry.path,
+    description: entry.description ?? entry.reactDocgen?.description ?? '',
+    props: summarizeProps(entry.reactDocgen?.props),
     firstStories: stories.slice(0, 3),
     remainingStoryIndex: stories.slice(3).map((s) => ({ id: s.id, name: s.name })),
-    attachedDocs: (entry.docs ?? []).map((d) => d.id),
   };
 };
 ```
@@ -1077,28 +1109,24 @@ Expected: PASS.
 Append to `src/tools/get-documentation.test.ts`:
 
 ```ts
-it('throws ComponentNotFoundError with up to 5 closest id suggestions', async () => {
-  expect(() => getDocumentation({ id: 'ui-buton' }, m))
-    .toThrowError(/not found.*ui-button/);
+import { getDocumentation, ComponentNotFoundError } from './get-documentation';
+
+it('throws ComponentNotFoundError with up to 5 closest id suggestions', () => {
+  try {
+    getDocumentation({ id: 'ui-buton' }, m);
+    throw new Error('should not reach');
+  } catch (e) {
+    expect(e).toBeInstanceOf(ComponentNotFoundError);
+    expect((e as ComponentNotFoundError).suggestions).toContain('ui-button');
+  }
 });
 ```
 
-Add the import: `import { getDocumentation, ComponentNotFoundError } from './get-documentation';`
-
-Then a stricter assertion:
-```ts
-try {
-  getDocumentation({ id: 'ui-buton' }, m);
-  throw new Error('should not reach');
-} catch (e) {
-  expect(e).toBeInstanceOf(ComponentNotFoundError);
-  expect((e as ComponentNotFoundError).suggestions).toContain('ui-button');
-}
-```
+(Replace the existing top-of-file import to include `ComponentNotFoundError`.)
 
 - [ ] **Step 6: Implement not-found behaviour**
 
-Replace the throw in `get-documentation.ts` with:
+Add to `src/tools/get-documentation.ts`:
 
 ```ts
 import { closestMatches } from './levenshtein';
@@ -1113,11 +1141,11 @@ export class ComponentNotFoundError extends Error {
 }
 ```
 
-And in `getDocumentation`:
+And replace the throw inside `getDocumentation` with:
 
 ```ts
 if (!entry) {
-  const suggestions = closestMatches(args.id, Object.keys(manifests.components.entries), 5);
+  const suggestions = closestMatches(args.id, Object.keys(manifests.components.components), 5);
   throw new ComponentNotFoundError(args.id, suggestions);
 }
 ```
@@ -1141,6 +1169,8 @@ git commit -m "feat(tool): get-documentation not-found with suggestions"
 
 ## Task 10: `get-documentation-for-story` — both arg shapes
 
+> **Schema reminder:** Stories have `id`, `name`, `snippet?`. No `args`/`parameters`. No `attachedDocs` (no `docs[]` on entries). Result is the story enriched with `storyId` + `componentId`.
+
 **Files:**
 - Create: `src/tools/get-documentation-for-story.test.ts`
 - Create: `src/tools/get-documentation-for-story.ts`
@@ -1160,6 +1190,7 @@ describe('getDocumentationForStory', () => {
   it('resolves by storyId', () => {
     const r = getDocumentationForStory({ storyId: 'ui-button--primary' }, m);
     expect(r).toMatchObject({ storyId: 'ui-button--primary', componentId: 'ui-button', name: 'Primary' });
+    expect(typeof r.snippet).toBe('string');
   });
 
   it('resolves by componentId + storyName', () => {
@@ -1196,7 +1227,6 @@ export type GetDocumentationForStoryArgs =
 export type GetDocumentationForStoryResult = StoryEntry & {
   storyId: string;
   componentId: string;
-  attachedDocs: string[];
 };
 
 export class StoryNotFoundError extends Error {
@@ -1212,7 +1242,7 @@ export const getDocumentationForStory = (
   args: GetDocumentationForStoryArgs,
   manifests: { components: ComponentsManifest },
 ): GetDocumentationForStoryResult => {
-  const allEntries = Object.values(manifests.components.entries);
+  const allEntries = Object.values(manifests.components.components);
   let componentId: string | undefined;
   let story: StoryEntry | undefined;
 
@@ -1226,24 +1256,23 @@ export const getDocumentationForStory = (
       throw new StoryNotFoundError(args.storyId, closestMatches(args.storyId, all, 5));
     }
   } else {
-    const c = manifests.components.entries[args.componentId];
+    const c = manifests.components.components[args.componentId];
     if (c) {
       componentId = c.id;
       story = c.stories.find((s) => s.name === args.storyName);
     }
     if (!story) {
-      const all = c ? c.stories.map((s) => s.name) : Object.keys(manifests.components.entries);
-      throw new StoryNotFoundError(`${args.componentId}/${args.storyName}`, closestMatches(args.storyName, all, 5));
+      const all = c
+        ? c.stories.map((s) => s.name)
+        : Object.keys(manifests.components.components);
+      throw new StoryNotFoundError(
+        `${args.componentId}/${args.storyName}`,
+        closestMatches(args.storyName, all, 5),
+      );
     }
   }
 
-  const owner = manifests.components.entries[componentId!]!;
-  return {
-    ...story,
-    storyId: story.id,
-    componentId: componentId!,
-    attachedDocs: (owner.docs ?? []).map((d) => d.id),
-  };
+  return { ...story, storyId: story.id, componentId: componentId! };
 };
 ```
 
@@ -1460,7 +1489,13 @@ git commit -m "feat(manager): bootstrap entry — polyfill + register"
 
 ---
 
-## Task 13: `preset.ts` — Storybook 10 preset (managerEntries + manifests merger)
+## Task 13: `preset.ts` — Storybook 10 preset (managerEntries + auto-enable manifests)
+
+> **Activation reminder (from Task 3):** Manifest emission requires BOTH:
+> 1. `features.componentsManifest: true` — gates the `writeManifests()` call in core-server
+> 2. `experimental_manifests: {}` — the preset hook implemented by `@storybook/react` and `@storybook/addon-docs`
+>
+> The preset must merge both, preserving any user-provided values.
 
 **Files:**
 - Create: `src/preset.ts`
@@ -1478,10 +1513,18 @@ export const managerEntries = async (existing: string[] = []) => [
   fileURLToPath(import.meta.resolve('./manager.js')),
 ];
 
-// Auto-enable Storybook 10.2+ manifests output so /manifests/components.json
-// is emitted in `storybook build`. Adjust the merge shape if Task 3 found
-// a different shape for this preset option.
-export const manifests = (existing: unknown) => {
+// Storybook 10 calls preset exports named after config keys and merges them
+// into the resolved StorybookConfig. Manifest emission is gated by BOTH:
+//   features.componentsManifest === true   (core-server gate)
+//   experimental_manifests  (preset-hook registration; addon-docs / @storybook/react)
+// We enable both, but user-provided values win.
+
+export const features = (existing: Record<string, unknown> | undefined = {}) => ({
+  ...existing,
+  componentsManifest: existing.componentsManifest ?? true,
+});
+
+export const experimental_manifests = (existing: unknown) => {
   if (existing === undefined || existing === false) return {};
   return existing; // user-provided config wins
 };
@@ -1500,7 +1543,7 @@ Expected: both files exist.
 
 ```bash
 git add src/preset.ts
-git commit -m "feat(preset): managerEntries + auto-enable manifests"
+git commit -m "feat(preset): managerEntries + auto-enable componentsManifest"
 ```
 
 ---
@@ -1530,7 +1573,7 @@ cd examples/fixture-sb
 npm install
 ```
 
-- [ ] **Step 2: Remove the explicit `manifests: {}` and add the addon**
+- [ ] **Step 2: Remove the explicit manifest config and add the addon**
 
 Edit `examples/fixture-sb/.storybook/main.ts`:
 
@@ -1541,7 +1584,8 @@ const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
   addons: ['@storybook/addon-docs', 'storybook-webmcp'],
   framework: { name: '@storybook/react-vite', options: {} },
-  // No `manifests:` line — the addon enables it.
+  // No `features.componentsManifest` or `experimental_manifests` — the addon
+  // enables both. Removing them proves the addon does the right thing.
 };
 
 export default config;
@@ -1751,6 +1795,106 @@ Expected: green.
 git add README.md
 git commit -m "docs: README with install/use/consume instructions"
 ```
+
+---
+
+## Task 17: GitHub Actions — publish to GitHub Packages npm registry on release
+
+Target: when a GitHub Release is published on `JBWatenbergScality/storybook-webmcp`, the workflow builds the package and publishes it to GitHub Packages so consumers can `npm i -D @jbwatenbergscality/storybook-webmcp` (scoped to the GitHub org). Reference: <https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry>.
+
+**Files:**
+- Modify: `package.json` (scoped name + `publishConfig.registry`)
+- Create: `.github/workflows/release.yml`
+- Modify: `README.md` (consumer install instructions for GHPR — `.npmrc` snippet)
+
+- [ ] **Step 1: Scope the package name and pin publishConfig**
+
+GitHub Packages requires a scope matching the owning user/org. Edit `package.json`:
+
+```json
+{
+  "name": "@jbwatenbergscality/storybook-webmcp",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JBWatenbergScality/storybook-webmcp.git"
+  }
+}
+```
+
+(Keep the rest of `package.json` unchanged.)
+
+- [ ] **Step 2: Create `.github/workflows/release.yml`**
+
+```yaml
+name: Publish to GitHub Packages
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@jbwatenbergscality'
+
+      - run: npm ci
+
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm --prefix examples/fixture-sb install
+      - run: npm --prefix examples/fixture-sb run build-storybook
+      - run: npm run test:e2e
+
+      - run: npm run build
+
+      - name: Set package version from release tag
+        run: npm version --no-git-tag-version "${GITHUB_REF_NAME#v}"
+
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+> The `npm version --no-git-tag-version` step accepts a tag like `v1.2.3` (strips the leading `v`) and writes that version into `package.json` immediately before publish. Document for the user: tag GitHub Releases as `vMAJOR.MINOR.PATCH`.
+
+- [ ] **Step 3: README — consumer install for GHPR**
+
+Add a section explaining that consumers need a `.npmrc` line so npm resolves the `@jbwatenbergscality` scope from GitHub Packages, and a `GITHUB_TOKEN` with `read:packages`:
+
+```
+# in consumer repo .npmrc
+@jbwatenbergscality:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+Then `npm i -D @jbwatenbergscality/storybook-webmcp`.
+
+- [ ] **Step 4: Verify and commit**
+
+```bash
+cd /Users/jbwatenberg/projects/storybook-webmcp
+git add package.json .github/workflows/release.yml README.md
+git commit -m "ci: publish to GitHub Packages npm registry on release"
+```
+
+- [ ] **Step 5: First release (manual, by the user)**
+
+After this commit is pushed, the user creates a GitHub Release tagged `v0.1.0` from the GitHub UI. The workflow fires, runs the test suite, and publishes `@jbwatenbergscality/storybook-webmcp@0.1.0` to GHPR. Subsequent releases are just new tags.
 
 ---
 
