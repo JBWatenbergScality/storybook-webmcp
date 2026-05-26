@@ -1,8 +1,8 @@
 // src/tools/register.ts
-import { loadManifests, __resetManifestCache } from './manifests';
-import { listAllDocumentation } from './list-all-documentation';
-import { getDocumentation } from './get-documentation';
-import { getDocumentationForStory } from './get-documentation-for-story';
+import { loadManifests, __resetManifestCache } from './manifests.js';
+import { listAllDocumentation } from './list-all-documentation.js';
+import { getDocumentation } from './get-documentation.js';
+import { getDocumentationForStory } from './get-documentation-for-story.js';
 
 export type ToolDef = {
   name: string;

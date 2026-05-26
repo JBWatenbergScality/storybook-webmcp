@@ -1,4 +1,4 @@
-import type { ComponentsManifest, DocsManifest } from './types';
+import type { ComponentsManifest, DocsManifest } from './types.js';
 
 export type ComponentIndexEntry = {
   id: string;

@@ -19,6 +19,10 @@
       "types": "./dist/manager.d.ts",
       "default": "./dist/manager.js"
     },
+    "./tools": {
+      "types": "./dist/tools/index.d.ts",
+      "default": "./dist/tools/index.js"
+    },
     "./package.json": "./package.json"
   },
   "files": ["dist", "README.md"],

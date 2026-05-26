@@ -1,5 +1,5 @@
-import type { ComponentsManifest, StoryEntry } from './types';
-import { closestMatches } from './levenshtein';
+import type { ComponentsManifest, StoryEntry } from './types.js';
+import { closestMatches } from './levenshtein.js';
 
 export type GetDocumentationForStoryArgs =
   | { storyId: string }

@@ -4,8 +4,8 @@ import type {
   PropDef,
   ReactDocgenTypescriptPropDef,
   ComponentEntry,
-} from './types';
-import { closestMatches } from './levenshtein';
+} from './types.js';
+import { closestMatches } from './levenshtein.js';
 
 export class ComponentNotFoundError extends Error {
   readonly suggestions: string[];

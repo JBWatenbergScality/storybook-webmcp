@@ -1,4 +1,4 @@
-import type { ComponentsManifest, DocsManifest } from './types';
+import type { ComponentsManifest, DocsManifest } from './types.js';
 
 // Bump when we've verified compatibility with a new shape.
 export const SUPPORTED_SCHEMA_VERSIONS = [0] as const;
