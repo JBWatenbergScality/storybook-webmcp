@@ -60,13 +60,18 @@ export const registerDocsTools = (ctx: ModelContextLike, opts: RegisterOptions) 
 
   ctx.registerTool({
     name: 'storybook.get-documentation-for-story',
-    description: 'Get a single story by storyId, or by componentId + storyName.',
+    // Flat schema (no top-level oneOf): the MCP/Anthropic tool input_schema
+    // rejects oneOf/anyOf/allOf at the top level. The two lookup modes are
+    // conveyed via property descriptions; the resolver validates the
+    // combination at runtime (StoryNotFoundError otherwise).
+    description: 'Get a single story — either by storyId, OR by componentId + storyName.',
     inputSchema: {
       type: 'object',
-      oneOf: [
-        { required: ['storyId'], properties: { storyId: { type: 'string' } } },
-        { required: ['componentId', 'storyName'], properties: { componentId: { type: 'string' }, storyName: { type: 'string' } } },
-      ],
+      properties: {
+        storyId: { type: 'string', description: 'Full story id, e.g. "components-button--primary". Provide this, OR componentId + storyName.' },
+        componentId: { type: 'string', description: 'Component id, e.g. "components-button". Use together with storyName.' },
+        storyName: { type: 'string', description: 'Story name, e.g. "Primary". Use together with componentId.' },
+      },
       additionalProperties: false,
     },
     execute: (args: unknown) =>
