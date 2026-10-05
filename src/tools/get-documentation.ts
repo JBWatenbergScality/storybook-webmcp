@@ -1,5 +1,6 @@
 import type {
   ComponentsManifest,
+  DocsManifest,
   StoryEntry,
   PropDef,
   ReactDocgenTypescriptPropDef,
@@ -10,7 +11,7 @@ import { closestMatches } from './levenshtein.js';
 export class ComponentNotFoundError extends Error {
   readonly suggestions: string[];
   constructor(id: string, suggestions: string[]) {
-    super(`component not found: ${id}. Did you mean: ${suggestions.join(', ')}?`);
+    super(`documentation not found: ${id}. Did you mean: ${suggestions.join(', ')}?`);
     this.name = 'ComponentNotFoundError';
     this.suggestions = suggestions;
   }
@@ -26,7 +27,8 @@ export type PropSummary = {
   defaultValue?: string;
 };
 
-export type GetDocumentationResult = {
+export type ComponentDocumentation = {
+  kind: 'component';
   id: string;
   name: string;
   path: string;
@@ -35,6 +37,17 @@ export type GetDocumentationResult = {
   firstStories: StoryEntry[];
   remainingStoryIndex: { id: string; name: string }[];
 };
+
+/** An unattached MDX page: prose with no component behind it, so no props and no stories. */
+export type PageDocumentation = {
+  kind: 'docs';
+  id: string;
+  title: string;
+  path?: string;
+  content: string;
+};
+
+export type GetDocumentationResult = ComponentDocumentation | PageDocumentation;
 
 const summarizeReactDocgenProps = (
   props: Record<string, PropDef> | undefined,
@@ -77,21 +90,40 @@ const describe = (entry: ComponentEntry): string =>
 
 export const getDocumentation = (
   args: GetDocumentationArgs,
-  manifests: { components: ComponentsManifest },
+  manifests: { components: ComponentsManifest; docs?: DocsManifest },
 ): GetDocumentationResult => {
   const entry = manifests.components.components[args.id];
-  if (!entry) {
-    const suggestions = closestMatches(args.id, Object.keys(manifests.components.components), 5);
-    throw new ComponentNotFoundError(args.id, suggestions);
+  if (entry) {
+    const stories = entry.stories ?? [];
+    return {
+      kind: 'component',
+      id: entry.id,
+      name: entry.name,
+      path: entry.path,
+      description: describe(entry),
+      props: summarizeProps(entry),
+      firstStories: stories.slice(0, 3),
+      remainingStoryIndex: stories.slice(3).map((s) => ({ id: s.id, name: s.name })),
+    };
   }
-  const stories = entry.stories ?? [];
-  return {
-    id: entry.id,
-    name: entry.name,
-    path: entry.path,
-    description: describe(entry),
-    props: summarizeProps(entry),
-    firstStories: stories.slice(0, 3),
-    remainingStoryIndex: stories.slice(3).map((s) => ({ id: s.id, name: s.name })),
-  };
+
+  // Unattached pages live in a manifest of their own, and list-all-documentation
+  // returns them alongside components — so an id arriving here is as likely to be
+  // a page as a typo. Without this branch they can be listed and never opened.
+  const page = manifests.docs?.docs[args.id];
+  if (page) {
+    return {
+      kind: 'docs',
+      id: page.id,
+      title: page.title ?? page.id,
+      ...(page.path !== undefined ? { path: page.path } : {}),
+      content: page.content ?? '',
+    };
+  }
+
+  const ids = [
+    ...Object.keys(manifests.components.components),
+    ...Object.keys(manifests.docs?.docs ?? {}),
+  ];
+  throw new ComponentNotFoundError(args.id, closestMatches(args.id, ids, 5));
 };

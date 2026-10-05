@@ -47,10 +47,10 @@ export const registerDocsTools = (ctx: ModelContextLike, opts: RegisterOptions) 
 
   ctx.registerTool({
     name: 'storybook.get-documentation',
-    description: 'Get full documentation (props, first 3 stories, story index) for one component by id.',
+    description: 'Get one entry by id: a component (props, first 3 stories, story index) or an unattached docs page (its MDX content). The `kind` field says which.',
     inputSchema: {
       type: 'object',
-      properties: { id: { type: 'string', description: 'Component id, e.g. ui-button.' } },
+      properties: { id: { type: 'string', description: 'Component id, e.g. ui-button, or docs page id, e.g. style-colors--stories. Both are listed by list-all-documentation.' } },
       required: ['id'],
       additionalProperties: false,
     },
