@@ -186,11 +186,15 @@ export type ComponentsManifest = {
 
 /**
  * A single unattached MDX doc entry.
- * Source: @storybook/addon-docs/dist/preset.js (speculative — docs.json was not
- * produced by the fixture-sb build because there are no unattached MDX files).
+ * Source: @storybook/addon-docs/dist/preset.js. `name` and `path` were added
+ * after reading a real build — scality/core-ui emits
+ * `{ id, name, path, title, content }` for each of its ten unattached pages —
+ * so every field but `id` stays optional.
  */
 export type DocsManifestEntry = {
   id: string;
+  name?: string;
+  path?: string;
   title?: string;
   content?: string;
   tags?: string[];
